@@ -1,0 +1,95 @@
+:root {
+  --primary-color: #409EFF;
+  --success-color: #f56c6c; /* TW format: Red for UP */
+  --danger-color: #67c23a;  /* TW format: Green for DOWN */
+  --bg-color: #f0f2f5;
+  --sidebar-bg: #1d1e23;
+  --sidebar-text: #a6adb4;
+  --sidebar-active-bg: #409EFF;
+  --sidebar-active-text: #ffffff;
+  --card-bg: #ffffff;
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --border-color: #ebeef5;
+}
+
+html.dark {
+  --bg-color: #141414;
+  --card-bg: #1d1e23;
+  --text-primary: #E5EAF3;
+  --text-regular: #A3A6AD;
+  --border-color: #363637;
+}
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Helvetica Neue", Helvetica, "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+h2 {
+  margin-top: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+p {
+  color: var(--text-regular);
+  margin-bottom: 25px;
+  line-height: 1.6;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #909399;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #4C4D4F;
+}
+
+/* Element Plus Overrides */
+.el-table .cell {
+  line-height: 1.5;
+}
+.el-card {
+  border-radius: 12px !important;
+  border: 1px solid var(--border-color) !important;
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.3s ease;
+}
+html.dark .el-card {
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.3) !important;
+}
+.el-card:hover {
+  transform: translateY(-2px);
+}
+.el-card__header {
+  font-weight: bold;
+  border-bottom: 1px solid var(--border-color) !important;
+  background-color: transparent !important;
+}
