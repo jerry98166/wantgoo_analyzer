@@ -1,33 +1,67 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Optional
 import scraper
 from apscheduler.schedulers.background import BackgroundScheduler
 from contextlib import asynccontextmanager
+from database import get_db, Watchlist, Alert
 
-df_combined = None
-date_str = None
+# --- Pydantic Models ---
+class WatchlistCreate(BaseModel):
+    stock_id: str
+    stock_name: str
+
+class WatchlistResponse(BaseModel):
+    id: int
+    stock_id: str
+    stock_name: str
+    close: Optional[float] = None
+    change_pct: Optional[float] = None
+    volume: Optional[float] = None
+    
+    class Config:
+        orm_mode = True
+
+class AlertCreate(BaseModel):
+    stock_id: str
+    condition_type: str
+    target_value: float
+
+class AlertResponse(BaseModel):
+    id: int
+    stock_id: str
+    condition_type: str
+    target_value: float
+    is_active: bool
+    
+    class Config:
+        orm_mode = True
 
 def update_daily_data():
-    global df_combined, date_str
-    print("Fetching and updating daily data...")
-    df_combined, date_str = scraper.get_combined_data()
-    print(f"Data updated for {date_str}")
+    print("Fetching daily market data (Price, T86, Margin, Industry)...")
+    scraper.fetch_all_daily_data()
+    print("Update complete.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load data on startup
+    # 啟動時先更新一次資料
     update_daily_data()
     
-    # Setup scheduler for daily update at 17:05
+    # 排程設定：多次嘗試，因為 TWSE OpenAPI 更新時間不固定 (約 17:30~19:00)
     scheduler = BackgroundScheduler()
-    scheduler.add_job(update_daily_data, 'cron', hour=17, minute=5)
+    scheduler.add_job(update_daily_data, 'cron', hour=14, minute=30, id='update_1430')  # 盤中更新
+    scheduler.add_job(update_daily_data, 'cron', hour=17, minute=15, id='update_1715')  # 收盤後首次
+    scheduler.add_job(update_daily_data, 'cron', hour=17, minute=45, id='update_1745')  # 第二次重試
+    scheduler.add_job(update_daily_data, 'cron', hour=18, minute=30, id='update_1830')  # 第三次重試
     scheduler.start()
+    
     yield
     scheduler.shutdown()
 
 app = FastAPI(title="WantGoo Analyzer API", lifespan=lifespan)
 
-# Setup CORS to allow Vue frontend to fetch data
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,79 +70,161 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global data variables are managed by lifespan
+@app.get("/api/data-status")
+def get_data_status():
+    """查詢目前快取資料的日期與狀態"""
+    import pytz
+    from datetime import datetime
+    tz = pytz.timezone('Asia/Taipei')
+    now = datetime.now(tz)
+    expected_date = scraper.get_latest_trading_date()
+    actual_date = scraper.last_update_date
+    stock_count = len(scraper.df_combined) if scraper.df_combined is not None else 0
+    return {
+        "server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "expected_date": expected_date,
+        "actual_data_date": actual_date,
+        "is_current": actual_date == expected_date,
+        "stock_count": stock_count
+    }
 
-@app.get("/api/meta")
-def get_meta():
-    return {"date": date_str}
+@app.post("/api/refresh-data")
+def refresh_data():
+    """手動觸發重新抓取資料"""
+    old_date = scraper.last_update_date
+    update_daily_data()
+    new_date = scraper.last_update_date
+    stock_count = len(scraper.df_combined) if scraper.df_combined is not None else 0
+    return {
+        "message": "Data refreshed",
+        "previous_date": old_date,
+        "new_date": new_date,
+        "stock_count": stock_count
+    }
 
-@app.get("/api/top-stocks")
-def get_top_stocks():
-    return scraper.analyze_top_stocks(df_combined, n=20)
+@app.get("/api/market-summary")
+def get_market_summary():
+    return scraper.get_market_summary()
 
-@app.get("/api/industry-focus")
-def get_industry_focus():
-    return scraper.analyze_industry(df_combined)
+@app.get("/api/news")
+def get_news():
+    return scraper.scrape_wantgoo_hot_articles()
 
-@app.get("/api/correlation")
-def get_correlation():
-    return scraper.analyze_correlation(df_combined)
+@app.get("/api/institutional-tracking")
+def get_institutional_tracking():
+    return scraper.get_institutional_tracking()
 
-@app.get("/api/market-breadth")
-def get_market_breadth():
-    return scraper.analyze_market_breadth(df_combined)
+@app.get("/api/market-breadth-industry")
+def get_market_breadth_industry():
+    return scraper.get_market_breadth_industry()
 
-@app.get("/api/synchrony")
-def get_synchrony():
-    return scraper.analyze_synchrony(df_combined)
+@app.get("/api/retail-and-leaders")
+def get_retail_and_leaders():
+    return scraper.get_retail_and_leaders()
 
-@app.get("/api/participation")
-def get_participation():
-    return scraper.analyze_participation(df_combined)
+@app.get("/api/market-trend")
+def get_market_trend():
+    return scraper.get_market_trend()
 
-@app.get("/api/volume-leaders")
-def get_volume_leaders():
-    return scraper.analyze_volume_leaders(df_combined)
+@app.get("/api/investor-dashboard")
+def get_investor_dashboard():
+    return scraper.get_investor_dashboard()
 
-@app.get("/api/smart-money")
-def get_smart_money():
-    return scraper.analyze_smart_money(df_combined)
+@app.get("/api/smart-money-advanced")
+def get_smart_money_advanced():
+    return scraper.get_smart_money_advanced()
 
-@app.get("/api/all-stocks")
-def get_all_stocks():
-    return df_combined.fillna(0).to_dict(orient='records')
+@app.get("/api/stock-heatmap")
+def get_stock_heatmap():
+    return scraper.get_stock_heatmap_data()
 
-@app.get("/api/turnover-leaders")
-def get_turnover_leaders():
-    leaders = df_combined.sort_values('Turnover_Value', ascending=False).head(20)
-    return leaders[['Stock_ID', 'Stock_Name', 'Close', 'Change_Pct', 'Volume', 'Total_Net', 'Industry', 'Turnover_Value']].fillna(0).to_dict(orient='records')
+class ScreenerCriteria(BaseModel):
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    min_change_pct: Optional[float] = None
+    min_total_net: Optional[float] = None
+    min_turnover_value: Optional[float] = None
+    industry: Optional[str] = None
 
-@app.get("/api/institutional-radar")
-def get_institutional_radar():
-    return scraper.analyze_institutional_radar(df_combined)
-
-@app.get("/api/day-trading")
-def get_day_trading():
-    return scraper.analyze_day_trading(df_combined)
-
-@app.get("/api/retail-sentiment")
-def get_retail_sentiment():
-    return scraper.analyze_retail_sentiment(df_combined)
+@app.post("/api/screener")
+def screen_stocks(criteria: ScreenerCriteria):
+    return scraper.screen_stocks(criteria.dict())
 
 @app.get("/api/stock/{stock_id}")
 def get_stock(stock_id: str):
-    data = scraper.get_stock_history_data(stock_id)
-    if not data:
-        return {"error": "Stock not found"}
-    return data
+    return scraper.get_stock_history_data(stock_id)
 
-@app.get("/api/articles")
-def get_articles():
-    return scraper.scrape_wantgoo_hot_articles()
+# --- Watchlist Endpoints ---
+@app.get("/api/watchlist", response_model=List[WatchlistResponse])
+def get_watchlist(db: Session = Depends(get_db)):
+    items = db.query(Watchlist).all()
+    res = []
+    df = scraper.df_combined
+    for item in items:
+        close_val = None
+        change_pct_val = None
+        vol_val = None
+        if df is not None and not df.empty and item.stock_id in df['Stock_ID'].values:
+            row = df[df['Stock_ID'] == item.stock_id].iloc[0]
+            close_val = row.get('Close')
+            change_pct_val = row.get('Change_Pct')
+            vol_val = row.get('Volume')
+            
+        res.append({
+            "id": item.id,
+            "stock_id": item.stock_id,
+            "stock_name": item.stock_name,
+            "close": close_val,
+            "change_pct": change_pct_val,
+            "volume": vol_val
+        })
+    return res
 
-@app.get("/api/historical-stats")
-def get_historical_stats():
-    return scraper.get_historical_stats()
+@app.post("/api/watchlist", response_model=WatchlistResponse)
+def add_to_watchlist(item: WatchlistCreate, db: Session = Depends(get_db)):
+    db_item = db.query(Watchlist).filter(Watchlist.stock_id == item.stock_id).first()
+    if db_item:
+        raise HTTPException(status_code=400, detail="Stock already in watchlist")
+    new_item = Watchlist(stock_id=item.stock_id, stock_name=item.stock_name)
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    return new_item
+
+@app.delete("/api/watchlist/{stock_id}")
+def remove_from_watchlist(stock_id: str, db: Session = Depends(get_db)):
+    db_item = db.query(Watchlist).filter(Watchlist.stock_id == stock_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Stock not found in watchlist")
+    db.delete(db_item)
+    db.commit()
+    return {"message": "Removed successfully"}
+
+# --- Alert Endpoints ---
+@app.get("/api/alerts", response_model=List[AlertResponse])
+def get_alerts(db: Session = Depends(get_db)):
+    return db.query(Alert).all()
+
+@app.post("/api/alerts", response_model=AlertResponse)
+def create_alert(alert: AlertCreate, db: Session = Depends(get_db)):
+    new_alert = Alert(
+        stock_id=alert.stock_id, 
+        condition_type=alert.condition_type, 
+        target_value=alert.target_value
+    )
+    db.add(new_alert)
+    db.commit()
+    db.refresh(new_alert)
+    return new_alert
+
+@app.delete("/api/alerts/{alert_id}")
+def delete_alert(alert_id: int, db: Session = Depends(get_db)):
+    db_alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not db_alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    db.delete(db_alert)
+    db.commit()
+    return {"message": "Deleted successfully"}
 
 if __name__ == "__main__":
     import uvicorn

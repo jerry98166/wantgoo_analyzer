@@ -6,3 +6,5 @@ beautifulsoup4
 yfinance
 apscheduler
 urllib3
+pytz
+SQLAlchemy==2.0.49

@@ -1,5 +1,7 @@
 <template>
   <el-container class="layout-container">
+    
+    <!-- 側邊欄 -->
     <el-aside width="260px" class="aside">
       <div class="logo">
         <el-icon :size="28" color="#409EFC"><DataAnalysis /></el-icon>
@@ -14,78 +16,51 @@
         text-color="#a6adb4"
         active-text-color="#ffffff"
       >
-        <el-menu-item index="DashboardOverview">
-          <el-icon><DataBoard /></el-icon>
-          <span>戰情室儀表板</span>
-        </el-menu-item>
-        
-        <div class="menu-category" style="margin-top: 15px;">全市場分析</div>
-        <el-menu-item index="MarketBreadth">
+        <div class="menu-category" style="margin-top: 15px;">核心功能</div>
+        <el-menu-item index="MarketSummary">
           <el-icon><Odometer /></el-icon>
-          <span>大盤多空結構</span>
+          <span>大盤與輿情總覽</span>
         </el-menu-item>
-        <el-menu-item index="IndustryAnalysis">
-          <el-icon><PieChart /></el-icon>
-          <span>產業板塊輪動</span>
+        <el-menu-item index="StockHeatmap">
+          <el-icon><Grid /></el-icon>
+          <span>股票熱力圖</span>
         </el-menu-item>
-        <el-menu-item index="InstitutionalSynchrony">
-          <el-icon><Switch /></el-icon>
-          <span>土洋同步與對作</span>
-        </el-menu-item>
-        <el-menu-item index="InstitutionalRadar">
-          <el-icon><Aim /></el-icon>
-          <span>特定法人雷達 (投信/自營)</span>
-        </el-menu-item>
-        <el-menu-item index="RetailSentiment">
-          <el-icon><UserFilled /></el-icon>
-          <span>散戶 vs 法人對作</span>
-        </el-menu-item>
-
-        <div class="menu-category" style="margin-top: 15px;">資金排行</div>
-        <el-menu-item index="TurnoverLeaders">
-          <el-icon><Coin /></el-icon>
-          <span>吸金排行榜 (成交值)</span>
-        </el-menu-item>
-        <el-menu-item index="CapitalFocus">
-          <el-icon><Money /></el-icon>
-          <span>法人買超焦點</span>
-        </el-menu-item>
-        <el-menu-item index="VolumeLeaders">
-          <el-icon><DataLine /></el-icon>
-          <span>成交重心人氣王</span>
-        </el-menu-item>
-        <el-menu-item index="ParticipationRank">
-          <el-icon><Histogram /></el-icon>
-          <span>法人高參與度排行</span>
-        </el-menu-item>
-
-        <div class="menu-category" style="margin-top: 15px;">深度探討</div>
-        <el-menu-item index="DayTradingRadar">
-          <el-icon><Lightning /></el-icon>
-          <span>當沖與短線熱點</span>
-        </el-menu-item>
-        <el-menu-item index="StockScreener">
-          <el-icon><Filter /></el-icon>
-          <span>AI 多條件選股器</span>
+        <el-menu-item index="Watchlist">
+          <el-icon><Star /></el-icon>
+          <span>自選股與警示</span>
         </el-menu-item>
         <el-menu-item index="SmartMoney">
-          <el-icon><Bicycle /></el-icon>
-          <span>聰明錢偷偷吃貨</span>
+          <el-icon><Magnet /></el-icon>
+          <span>主力籌碼深度追蹤</span>
         </el-menu-item>
-        <el-menu-item index="Correlation">
+        <el-menu-item index="Screener">
+          <el-icon><Filter /></el-icon>
+          <span>多條件智慧選股</span>
+        </el-menu-item>
+        <el-menu-item index="InvestorDashboard">
+          <el-icon><DataBoard /></el-icon>
+          <span>投資決策儀表板</span>
+        </el-menu-item>
+        <el-menu-item index="MarketBreadth">
+          <el-icon><PieChart /></el-icon>
+          <span>大盤結構與產業資金</span>
+        </el-menu-item>
+        <el-menu-item index="InstitutionalTracking">
+          <el-icon><Aim /></el-icon>
+          <span>法人資金追蹤</span>
+        </el-menu-item>
+        <el-menu-item index="RetailAndLeaders">
+          <el-icon><UserFilled /></el-icon>
+          <span>散戶動向與人氣榜</span>
+        </el-menu-item>
+        <el-menu-item index="StockDetail">
           <el-icon><TrendCharts /></el-icon>
-          <span>籌碼與股價關聯</span>
-        </el-menu-item>
-        <el-menu-item index="StockObserver">
-          <el-icon><Search /></el-icon>
-          <span>個股籌碼指標 (全位)</span>
-        </el-menu-item>
-        <el-menu-item index="MarketNews">
-          <el-icon><Document /></el-icon>
-          <span>玩股網市場情緒</span>
+          <span>個股技術與籌碼分析</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
+    
+    <!-- 右側內容區塊 -->
     <el-container>
       <el-header class="header">
         <div class="header-left">
@@ -102,12 +77,9 @@
             inactive-icon="Sunny"
             style="--el-switch-on-color: #2C2C2C; --el-switch-off-color: #f2f2f2;"
           />
-          <el-tag type="info" effect="dark" round v-if="metaDate">
-            <el-icon style="vertical-align: middle; margin-right: 4px"><Calendar /></el-icon>
-            資料日期：{{ metaDate }}
-          </el-tag>
         </div>
       </el-header>
+      
       <el-main class="main-content">
         <transition name="fade-transform" mode="out-in">
           <component :is="currentComponent" />
@@ -118,28 +90,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
-import MarketBreadth from './components/MarketBreadth.vue'
-import CapitalFocus from './components/CapitalFocus.vue'
-import IndustryAnalysis from './components/IndustryAnalysis.vue'
-import InstitutionalSynchrony from './components/InstitutionalSynchrony.vue'
-import Correlation from './components/Correlation.vue'
-import StockObserver from './components/StockObserver.vue'
-import MarketNews from './components/MarketNews.vue'
-import VolumeLeaders from './components/VolumeLeaders.vue'
-import ParticipationRank from './components/ParticipationRank.vue'
-import SmartMoney from './components/SmartMoney.vue'
-import TurnoverLeaders from './components/TurnoverLeaders.vue'
-import StockScreener from './components/StockScreener.vue'
-import InstitutionalRadar from './components/InstitutionalRadar.vue'
-import DashboardOverview from './components/DashboardOverview.vue'
-import DayTradingRadar from './components/DayTradingRadar.vue'
-import RetailSentiment from './components/RetailSentiment.vue'
-import { watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 
-const activeMenu = ref('DashboardOverview')
-const metaDate = ref('')
+import MarketSummary from './components/MarketSummary.vue'
+import Watchlist from './components/Watchlist.vue'
+import SmartMoney from './components/SmartMoney.vue'
+import Screener from './components/Screener.vue'
+import InvestorDashboard from './components/InvestorDashboard.vue'
+import MarketBreadth from './components/MarketBreadth.vue'
+import InstitutionalTracking from './components/InstitutionalTracking.vue'
+import RetailAndLeaders from './components/RetailAndLeaders.vue'
+import StockDetail from './components/StockDetail.vue'
+import StockHeatmap from './components/StockHeatmap.vue'
+import { onMounted, onUnmounted } from 'vue'
+
+const activeMenu = ref('MarketSummary')
 const isDark = ref(false)
 
 watch(isDark, (val) => {
@@ -150,23 +115,30 @@ watch(isDark, (val) => {
   }
 })
 
+const handleViewStock = (e) => {
+  activeMenu.value = 'StockDetail'
+  window.selectedStockId = e.detail
+}
+
+onMounted(() => {
+  window.addEventListener('view-stock', handleViewStock)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('view-stock', handleViewStock)
+})
+
 const componentsMap = {
-  DashboardOverview: { comp: DashboardOverview, title: '戰情室儀表板' },
-  MarketBreadth: { comp: MarketBreadth, title: '大盤多空結構' },
-  TurnoverLeaders: { comp: TurnoverLeaders, title: '吸金排行榜 (成交值)' },
-  CapitalFocus: { comp: CapitalFocus, title: '法人買超焦點' },
-  IndustryAnalysis: { comp: IndustryAnalysis, title: '產業板塊輪動' },
-  InstitutionalSynchrony: { comp: InstitutionalSynchrony, title: '土洋同步與對作' },
-  InstitutionalRadar: { comp: InstitutionalRadar, title: '特定法人雷達' },
-  RetailSentiment: { comp: RetailSentiment, title: '散戶 vs 法人對作' },
-  DayTradingRadar: { comp: DayTradingRadar, title: '當沖與短線熱點' },
-  StockScreener: { comp: StockScreener, title: 'AI 多條件選股器' },
-  SmartMoney: { comp: SmartMoney, title: '聰明錢偷偷吃貨' },
-  Correlation: { comp: Correlation, title: '籌碼與股價關聯' },
-  StockObserver: { comp: StockObserver, title: '個股籌碼指標 (全方位)' },
-  MarketNews: { comp: MarketNews, title: '玩股網市場情緒' },
-  VolumeLeaders: { comp: VolumeLeaders, title: '成交重心人氣王' },
-  ParticipationRank: { comp: ParticipationRank, title: '法人高參與度排行' }
+  MarketSummary: { comp: MarketSummary, title: '大盤與輿情總覽' },
+  StockHeatmap: { comp: StockHeatmap, title: '股票熱力圖' },
+  Watchlist: { comp: Watchlist, title: '自選股與警示' },
+  SmartMoney: { comp: SmartMoney, title: '主力籌碼深度追蹤' },
+  Screener: { comp: Screener, title: '多條件智慧選股' },
+  InvestorDashboard: { comp: InvestorDashboard, title: '投資決策儀表板' },
+  MarketBreadth: { comp: MarketBreadth, title: '大盤結構與產業資金' },
+  InstitutionalTracking: { comp: InstitutionalTracking, title: '法人資金追蹤' },
+  RetailAndLeaders: { comp: RetailAndLeaders, title: '散戶動向與人氣榜' },
+  StockDetail: { comp: StockDetail, title: '個股技術與籌碼分析' }
 }
 
 const currentComponent = computed(() => componentsMap[activeMenu.value].comp)
@@ -175,19 +147,6 @@ const currentTitle = computed(() => componentsMap[activeMenu.value].title)
 const handleSelect = (index) => {
   activeMenu.value = index
 }
-
-const fetchMeta = async () => {
-  try {
-    const { data } = await axios.get('http://127.0.0.1:8000/api/meta')
-    metaDate.value = data.date
-  } catch (error) {
-    console.error("Failed to fetch meta:", error)
-  }
-}
-
-onMounted(() => {
-  fetchMeta()
-})
 </script>
 
 <style scoped>
@@ -245,7 +204,6 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-/* Transitions */
 .fade-transform-enter-active,
 .fade-transform-leave-active {
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);

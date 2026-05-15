@@ -1,57 +1,30 @@
 <template>
-  <div>
-    <h2>大盤多空結構與整體動向</h2>
-    <p>分析當日市場漲跌家數與三大法人整體資金流向，快速判斷大盤的多空氛圍與市場廣度（Market Breadth）。</p>
-    
-    <el-row :gutter="20" v-loading="loading">
+  <div class="market-breadth">
+    <el-row :gutter="20">
+      <!-- 大盤多空結構 (圓餅圖) -->
       <el-col :span="8">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-title">外資淨買賣超</div>
-          <div :class="['stat-value', totals.foreign > 0 ? 'up' : 'down']">
-            {{ formatLots(totals.foreign) }} 張
+        <el-card shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>大盤多空結構</span>
+            </div>
+          </template>
+          <div style="height: 350px;" v-loading="loading">
+            <v-chart v-if="breadthOption" :option="breadthOption" autoresize />
           </div>
         </el-card>
       </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-title">投信淨買賣超</div>
-          <div :class="['stat-value', totals.trust > 0 ? 'up' : 'down']">
-            {{ formatLots(totals.trust) }} 張
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-title">自營商淨買賣超</div>
-          <div :class="['stat-value', totals.dealer > 0 ? 'up' : 'down']">
-            {{ formatLots(totals.dealer) }} 張
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
 
-    <el-row :gutter="20" style="margin-top: 20px;" v-loading="loading">
-      <el-col :span="12">
+      <!-- 產業資金流向 (長條圖) -->
+      <el-col :span="16">
         <el-card shadow="hover">
           <template #header>
             <div class="card-header">
-              <span>三大法人買賣超占比</span>
+              <span>產業法人資金流向 (億元)</span>
             </div>
           </template>
-          <div class="chart-container">
-            <v-chart class="chart" :option="instPieOption" autoresize />
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span>大盤漲跌家數結構</span>
-            </div>
-          </template>
-          <div class="chart-container">
-            <v-chart class="chart" :option="breadthPieOption" autoresize />
+          <div style="height: 350px;" v-loading="loading">
+            <v-chart v-if="industryOption" :option="industryOption" autoresize />
           </div>
         </el-card>
       </el-col>
@@ -61,106 +34,155 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import axios from 'axios'
+import { apiClient } from '../api'
 
-const loading = ref(false)
-const breadth = ref({ up: 0, down: 0, unchanged: 0 })
-const totals = ref({ foreign: 0, trust: 0, dealer: 0, net: 0, volume: 0 })
+const breadthData = ref([])
+const topBuyIndustries = ref([])
+const topSellIndustries = ref([])
+const loading = ref(true)
 
-const formatLots = (val) => {
-  return new Intl.NumberFormat('en-US').format(Math.round(val))
-}
-
-const instPieOption = computed(() => {
-  return {
-    tooltip: { trigger: 'item' },
-    legend: { top: 'bottom' },
-    series: [
-      {
-        name: '買賣超分布',
-        type: 'pie',
-        radius: '60%',
-        data: [
-          { value: Math.abs(totals.value.foreign), name: '外資' },
-          { value: Math.abs(totals.value.trust), name: '投信' },
-          { value: Math.abs(totals.value.dealer), name: '自營商' }
-        ],
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
-          }
-        }
-      }
-    ]
-  }
-})
-
-const breadthPieOption = computed(() => {
-  return {
-    tooltip: { trigger: 'item' },
-    legend: { top: 'bottom' },
-    color: ['#f56c6c', '#67c23a', '#909399'], // Red for Up, Green for Down in TW
-    series: [
-      {
-        name: '家數',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        itemStyle: {
-          borderRadius: 10,
-          borderColor: '#fff',
-          borderWidth: 2
-        },
-        data: [
-          { value: breadth.value.up, name: '上漲家數' },
-          { value: breadth.value.down, name: '下跌家數' },
-          { value: breadth.value.unchanged, name: '平盤家數' }
-        ]
-      }
-    ]
-  }
-})
-
-const fetchData = async () => {
-  loading.value = true
+const fetchMarketBreadth = async () => {
   try {
-    const { data } = await axios.get('http://127.0.0.1:8000/api/market-breadth')
-    breadth.value = data.breadth
-    totals.value = data.totals
-  } catch (e) {
-    console.error(e)
+    const { data } = await apiClient.get('/api/market-breadth-industry')
+    if (data.error) {
+      console.log("Data not ready")
+      return
+    }
+    breadthData.value = data.breadth
+    topBuyIndustries.value = data.top_buy_industries
+    topSellIndustries.value = data.top_sell_industries
+  } catch (error) {
+    console.error('Failed to fetch market breadth', error)
   } finally {
     loading.value = false
   }
 }
 
+const breadthOption = computed(() => {
+  if (!breadthData.value.length) return null
+  return {
+    tooltip: { trigger: 'item' },
+    legend: { top: '5%', left: 'center' },
+    color: ['#f56c6c', '#67c23a', '#909399'], // 紅, 綠, 灰
+    series: [
+      {
+        name: '家數',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: { show: false, position: 'center' },
+        emphasis: {
+          label: { show: true, fontSize: 20, fontWeight: 'bold' }
+        },
+        labelLine: { show: false },
+        data: breadthData.value
+      }
+    ]
+  }
+})
+
+const industryOption = computed(() => {
+  if (!topBuyIndustries.value.length) return null
+
+  // 整理長條圖資料，包含買超與賣超
+  const combined = [...topBuyIndustries.value, ...topSellIndustries.value].sort((a, b) => b.Inst_Net_Value - a.Inst_Net_Value)
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'value', name: '法人買賣超 (億元)' },
+    yAxis: {
+      type: 'category',
+      data: combined.map(item => item.Industry),
+      inverse: true
+    },
+    series: [
+      {
+        name: '淨買賣超',
+        type: 'bar',
+        data: combined.map(item => ({
+          value: item.Inst_Net_Value,
+          itemStyle: { color: item.Inst_Net_Value > 0 ? '#f56c6c' : '#67c23a' }
+        })),
+        label: { show: true, position: 'right' }
+      }
+    ]
+  }
+})
+
+const treemapOption = computed(() => {
+  if (!industryTreemap.value || industryTreemap.value.length === 0) return null
+
+  return {
+    tooltip: {
+      formatter: function (info) {
+        let value = info.value;
+        let change = info.data.change;
+        return [
+          '<div class="tooltip-title">' + info.name + '</div>',
+          '成交值: ' + value + ' 百萬<br>',
+          '平均漲跌: ' + change + ' %'
+        ].join('');
+      }
+    },
+    visualMap: {
+      type: 'continuous',
+      min: -5,
+      max: 5,
+      dimension: 2, // Map to the 'change' property which we will put in index 2 of data
+      inRange: {
+        color: ['#006400', '#67c23a', '#dddddd', '#f56c6c', '#8b0000'] // 深綠 -> 淺綠 -> 灰 -> 淺紅 -> 深紅
+      },
+      show: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: 10,
+      text: ['大漲', '大跌']
+    },
+    series: [
+      {
+        name: '產業資金地圖',
+        type: 'treemap',
+        width: '100%',
+        height: '80%',
+        roam: false,
+        nodeClick: false,
+        breadcrumb: { show: false },
+        itemStyle: {
+          borderColor: '#fff',
+          gapWidth: 2
+        },
+        label: {
+          show: true,
+          formatter: function (params) {
+            return params.name + '\n' + params.data.change + '%';
+          },
+          fontSize: 14,
+          fontWeight: 'bold'
+        },
+        data: industryTreemap.value.map(item => ({
+          name: item.name,
+          value: [item.value, item.value, item.change], // [視覺大小, tooltip用大小, 顏色映射用的change]
+          change: item.change
+        }))
+      }
+    ]
+  }
+})
+
 onMounted(() => {
-  fetchData()
+  fetchMarketBreadth()
 })
 </script>
 
 <style scoped>
-.stat-card {
-  text-align: center;
-  padding: 20px 0;
-}
-.stat-title {
-  font-size: 16px;
-  color: #606266;
-  margin-bottom: 10px;
-}
-.stat-value {
-  font-size: 32px;
-  font-weight: bold;
-}
-.up { color: #f56c6c; }
-.down { color: #67c23a; }
-.chart-container {
-  height: 300px;
-}
-.chart {
-  height: 100%;
-  width: 100%;
-}
+.card-header { font-weight: bold; }
 </style>
